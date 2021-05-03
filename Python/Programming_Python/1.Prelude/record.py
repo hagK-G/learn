@@ -71,4 +71,5 @@ db = {
     )
 }
 
-pprint.pprint(db)
+for key in db:
+    print(key, '=>', db[key]['name'])
