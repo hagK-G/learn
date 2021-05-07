@@ -1,2 +1,2 @@
+DATABASE = 'Flask'
 DEBUG = True
-DATABASE = 'FLSAK'
