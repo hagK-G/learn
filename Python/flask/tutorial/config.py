@@ -1,0 +1,2 @@
+DATABASE = 'Flask'
+DEBUG = True

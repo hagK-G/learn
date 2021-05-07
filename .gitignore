@@ -1,4 +1,4 @@
 backup/
 venv/
 *.pyc
-Flask
+lib/
