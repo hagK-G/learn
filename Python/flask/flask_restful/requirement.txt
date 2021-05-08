@@ -1,0 +1,5 @@
+flask_sqlalchemy
+flask
+itsdangerous
+mysql-python
+flask-restful

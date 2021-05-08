@@ -4,6 +4,7 @@
 from flask import Flask, request, jsonify, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask.ext.restful import Api, Resource
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 
 app = Flask(__name__)
 
@@ -25,10 +26,24 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, nullable=False, primary_key=True, autoincrement=True)
     username = db.Column(db.String(32), nullable=False, unique=True, server_default='', index=True)
-    # password = db.Column(db.String(32), nullable=False, unique=True, server_default='', index=True)
+    password = db.Column(db.String(32), nullable=False, unique=True, server_default='', index=True)
     role_id = db.Column(db.Integer, nullable=False, server_default='0')
     def __repr__(self):
         return '<User %r,Role id %r>' %(self.username,self.role_id)
+    def generate_tokey(self, expiration = 600):
+        s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
+        return s.dumps({id: self.id})
+    @staticmethod
+    def verify_token(token):
+        s = Serializer(app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+        except SignatureExpired:
+            return None # invalid token, but expired
+        except BadSignature:
+            return None # invalid token
+        user = User.query.get(data['id'])
+        return user
 
 
 # FLASK RESTFUL API
@@ -39,8 +54,9 @@ class UserAPI(Resource):
         # self.reqparse = reqparse.RequestParser()
         # self.reqparse.add_argument('username', type = str, location = 'json')
     def handle_username(self):
-        if request.json['username'] is not None:
+        if request.json['username'] is not None and request.json['password'] is not None
             self.username = request.json['username']
+            self.password = request.json['password']
         else:
             abort(400)
             return 'username is required'
@@ -49,7 +65,7 @@ class UserAPI(Resource):
             self.user = User.query.filter_by(id=id).first()
     def get(self, id):
         self.handle_id(id)
-        return dict(username=self.user.username, id=self.user.id)
+        return dict(username=self.user.username, id=self.user.id, password=self.password)
     def delete(self, id):
         self.handle_id(id)
         db.session.delete(self.user)
@@ -65,7 +81,7 @@ class UserAPI(Resource):
         if User.query.filter_by(username = username).first() is not None:
             return 'existing user'
             abort(400)
-        db.session.add(User(username=username))
+        db.session.add(User(username=self.username, password=self.password))
         db.session.commit()
         return 'user %s created' % username 
         
@@ -79,6 +95,11 @@ class UserListAPI(Resource):
 api.add_resource(UserAPI, '/api/v1/users/<int:id>', endpoint='user')
 api.add_resource(UserListAPI, '/api/v1/users', endpoint='users')
 
+@app.route('/api/v1/token')
+@auth.login_required
+def get_auth_token():
+    token = g.user.generate_tokey()
+    return jsonify({'token': token.decode('ascii')})
 
 
 
